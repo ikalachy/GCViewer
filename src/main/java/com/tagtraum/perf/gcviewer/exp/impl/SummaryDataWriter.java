@@ -6,9 +6,11 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.text.NumberFormat;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Map;
 
 import com.tagtraum.perf.gcviewer.exp.AbstractDataWriter;
+import com.tagtraum.perf.gcviewer.model.GCEvent;
 import com.tagtraum.perf.gcviewer.model.GCModel;
 import com.tagtraum.perf.gcviewer.util.FormattedValue;
 import com.tagtraum.perf.gcviewer.util.MemoryFormat;
@@ -184,6 +186,7 @@ public class SummaryDataWriter extends AbstractDataWriter {
 
         if (pauseDataAvailable) {
             exportValue(out, "avgPauseIsSig", isSignificant(model.getPause().average(), model.getPause().standardDeviation()) );
+            exportValue(out, "gcPauseBadEvents", percentFormatter.format(isSignificant(model)), "%" );
             exportValue(out, "avgPause", pauseFormatter.format(model.getPause().average()), "s");
             exportValue(out, "avgPause\u03c3", pauseFormatter.format(model.getPause().standardDeviation()), "s");
 
@@ -228,6 +231,25 @@ public class SummaryDataWriter extends AbstractDataWriter {
         // at least 68.3% of all points are within 0.75 to 1.25 times the average value
         // Note: this may or may not be a good measure, but it at least helps to mark some bad data as such
         return average-standardDeviation > 0.75 * average;
+    }
+
+    private double isSignificant(GCModel model) {
+        int n = model.getPause().getN();
+        double avg = model.getPause().average();
+        double deviation = model.getPause().standardDeviation();
+        double edge = avg + deviation;
+
+        Iterator<GCEvent> iter = model.getGCEvents();
+        double badEvents = 0;
+        while (iter.hasNext()){
+            GCEvent gce = iter.next();
+            double pause = gce.getPause();
+            if (pause > edge) {
+                badEvents++;
+            }
+        }
+
+        return badEvents *100 / n;
     }
 
     private void exportMemorySummary(PrintWriter out, GCModel model) {
